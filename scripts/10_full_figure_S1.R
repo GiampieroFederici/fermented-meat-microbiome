@@ -1,0 +1,25 @@
+args<-commandArgs(TRUE);A<-normalizePath(args[1],winslash='/');C<-file.path(A,'02_CONTROLLI');R<-A;O<-file.path(A,'outputs');suppressPackageStartupMessages(library(ape));tr<-read.tree(file.path(A,'sources/Lsakei_229.treefile'));N<-length(tr$tip.label)
+rd<-function(p)read.delim(p,quote='"',check.names=FALSE,stringsAsFactors=FALSE,na.strings=c('','NA'))
+refs<-rd(file.path(R,'sources/reference_labels_verified.tsv'));meta<-rd(file.path(R,'02_CONTROLLI/Table_S10_StrainPhlAn_Lsakei/Metagenome_labels.tsv'));pal<-rd(file.path(R,'sources/Figure6_source_palette.tsv'));fill<-setNames(pal$marker_triangle_colour,pal$source_category);dark<-setNames(pal$label_terminal_branch_colour,pal$source_category);names(fill)[names(fill)=='animal host']<-'animal_host';names(dark)[names(dark)=='animal host']<-'animal_host'
+labels<-tr$tip.label;cat<-rep('meat',N);pch<-rep(15,N);marker<-rep(fill['meat'],N);col<-rep(dark['meat'],N);outline<-rep(NA_character_,N)
+for(i in seq_len(N)){id<-tr$tip.label[i];if(id%in%meta$original_code){labels[i]<-meta$leaf_label[match(id,meta$original_code)]}else{j<-match(id,refs$Accession);stopifnot(!is.na(j));labels[i]<-refs$Full_human_label[j];cat[i]<-refs$Source_macro_category[j];pch[i]<-21;marker[i]<-fill[cat[i]];col[i]<-dark[cat[i]];outline[i]<-if(isTRUE(refs$Source_geography[j]=='Italy'))'#2565AD' else '#777777'}}
+stopifnot(!anyNA(labels),!anyNA(col),length(unique(labels))==229,sum(pch==15)==47)
+edgecol<-rep('#777777',nrow(tr$edge));term<-tr$edge[,2]<=N;edgecol[term]<-col[tr$edge[term,2]];depth<-node.depth.edgelength(tr);maxdepth<-max(depth)
+pdf(NULL);plot(tr,show.tip.label=FALSE);plotenv<-get('.PlotPhyloEnv',envir=asNamespace('ape'));pre<-get('last_plot.phylo',envir=plotenv);yall<-pre$yy[1:N];dev.off()
+# Physical text space is measured on the actual PDF device; every tip is printed once per view.
+render<-function(file,continuous=FALSE){cairo_pdf(file,width=210/25.4,height=if(continuous)1100/25.4 else 297/25.4,family='Arial',bg='white');pages<-if(continuous)1 else 4;seen<-character()
+for(pg in seq_len(pages)){par(mar=c(3,1,if(continuous)9 else if(pg==1)9 else 3,1),xpd=FALSE,family='Arial',cex=.58);labelmm<-max(strwidth(labels,units='inches'))*25.4+3;plotmm<-par('pin')[1]*25.4;branchmm<-max(65,plotmm-labelmm-5);xmax<-maxdepth*plotmm/branchmm
+# Capture native y positions without changing the source tree or any branch length.
+tiporder<-order(yall,decreasing=TRUE)
+idx<-if(continuous)seq_len(N)else seq.int((pg-1)*58+1,min(pg*58,N));whichTips<-tiporder[idx];rangeY<-range(yall[whichTips])+c(-.7,.7)
+plot(tr,show.tip.label=FALSE,edge.color=edgecol,edge.width=.65,no.margin=FALSE,x.lim=c(0,xmax),y.lim=rangeY);lp<-get('last_plot.phylo',envir=plotenv);labelx<-maxdepth+maxdepth*.025
+for(i in whichTips){segments(lp$xx[i],lp$yy[i],labelx-maxdepth*.004,lp$yy[i],col=adjustcolor(col[i],alpha.f=.3),lty=3,lwd=.4);if(pch[i]==15)points(lp$xx[i],lp$yy[i],pch=15,col=marker[i],cex=.65)else points(lp$xx[i],lp$yy[i],pch=21,bg=marker[i],col=outline[i],lwd=.7,cex=.65);text(labelx,lp$yy[i],labels[i],adj=c(0,.5),col=col[i],cex=.95);seen<-c(seen,tr$tip.label[i])}
+for(j in 1:tr$Nnode){node<-N+j;if(lp$yy[node]<rangeY[1]||lp$yy[node]>rangeY[2])next;v<-suppressWarnings(as.numeric(strsplit(tr$node.label[j],'/',fixed=TRUE)[[1]]));if(length(v)==2&&!is.na(v[2]))points(lp$xx[node],lp$yy[node],pch=16,cex=.5,col=if(v[2]<75)'#C8C8C8'else if(v[2]<=95)'#686868'else'#101010')}
+if(pg==1){mtext('Figure S1. Complete marker phylogeny of Latilactobacillus sakei',side=3,line=7.3,adj=0,cex=1.05,font=2);mtext('229 sequences: 47 metagenomic consensuses (squares), 182 references (circles); no collapsed clades.',side=3,line=5.5,adj=0,cex=.8);mtext('Colour denotes source: meat red; vegetal green; host purple; dairy amber; starter teal; cereal brown;',side=3,line=4.2,adj=0,cex=.8);mtext('environment slate; seafood blue. Italian references have blue outlines. Labels map to Table S10.',side=3,line=3,adj=0,cex=.8);mtext('UFBoot dots: light grey <75; dark grey 75-95; black >95. Missing support is unmarked.',side=3,line=1.8,adj=0,cex=.8);mtext('Original unrooted-tree drawing orientation; no outgroup. Neither strain identity nor transmission is inferred.',side=3,line=.6,adj=0,cex=.8)}else mtext(paste0('Figure S1 continued - part ',pg,' of 4'),side=3,line=1,adj=0,cex=1.1,font=2)
+mtext(if(continuous)'Continuous full-tree view; branch lengths in substitutions/site.'else paste0('Part ',pg,' of 4. Branch lengths in substitutions/site.'),side=1,line=1,adj=0,cex=.8)
+# Branch-length scale is unchanged by the graphical layout.
+add.scale.bar(x=0,y=rangeY[1]+.2,length=.1,cex=.8,lwd=.7)
+}
+dev.off();stopifnot(length(seen)==229,!anyDuplicated(seen),setequal(seen,tr$tip.label));seen}
+seen<-render(file.path(O,'Supplementary_Figures.pdf'))
+write.table(data.frame(original_tip=tr$tip.label,printed_label=labels,source_category=cat,label_colour=col,marker_colour=marker),file.path(C,'FIGURE_S1_ALL229_LABELS.tsv'),sep='\t',row.names=FALSE,quote=TRUE);cat('FIGURE_S1_VECTOR:all229 IDs shown once in each view; original tree unchanged\n')

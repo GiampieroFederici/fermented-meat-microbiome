@@ -1,0 +1,20 @@
+.env
+.env.*
+.Rhistory
+.RData
+# Runtime views of the separately supplied journal workbooks and generated outputs.
+/02_CONTROLLI/
+/checks/
+/outputs/
+/03_RETTIFICHE_PRONTE/
+/work/derived/
+/work/data/04/
+/work/data/sample_annotation.tsv
+/work/data/species_to_group_original.csv
+/work/data/kraken_batches/ciau/
+/work/data/kraken_batches/mutton/
+/sources/reference_labels_verified.tsv
+/sources/Figure6_source_palette.tsv
+
+*.xlsx
+
